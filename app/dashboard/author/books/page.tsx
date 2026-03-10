@@ -3,15 +3,38 @@ import { BookOpen, CircleDollarSign, Library, PlusCircle, Sparkles } from "lucid
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+// Définition manuelle des types basés sur la sélection
+type BookFormatRow = {
+  id: string;
+  format: string;
+  price: number;
+  is_published: boolean;
+};
+
+type BookRow = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  categories: string[];     // ARRAY dans le schéma
+  language: string;
+  book_formats: BookFormatRow[] | null;
+};
+
 export default async function AuthorBooksPage() {
   const profile = await requireRole(["author"]);
   const supabase = await createClient();
 
-  const { data } = await supabase
+  // ✅ Caster la réponse avec le type BookRow[]
+  const { data } = (await supabase
     .from("books")
-    .select("id, title, subtitle, status, created_at, updated_at, categories, language, book_formats(id, format, price, is_published)")
+    .select(
+      "id, title, subtitle, status, created_at, updated_at, categories, language, book_formats(id, format, price, is_published)"
+    )
     .eq("author_id", profile.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })) as { data: BookRow[] | null };
 
   const books = data ?? [];
   const publishedCount = books.filter((book) => book.status === "published").length;
@@ -101,9 +124,13 @@ export default async function AuthorBooksPage() {
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">Langue: <span className="font-medium text-slate-900">{book.language}</span></p>
                 <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                  Categories: <span className="font-medium text-slate-900">{book.categories.length ? book.categories.join(", ") : "Aucune"}</span>
+                  Langue: <span className="font-medium text-slate-900">{book.language}</span>
+                </p>
+                <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                  Categories: <span className="font-medium text-slate-900">
+                    {book.categories.length ? book.categories.join(", ") : "Aucune"}
+                  </span>
                 </p>
                 <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
                   Cree: <span className="font-medium text-slate-900">{new Date(book.created_at).toLocaleDateString()}</span>
