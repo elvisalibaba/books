@@ -19,21 +19,22 @@ export async function resolveReadAccess(
 ): Promise<ReadAccessResult> {
   const supabase = await createClient();
 
-  const { data: book } = await supabase
+  // ✅ Solution rapide n°1 : forcer le type de la réponse avec "as any"
+  const { data: book } = (await supabase
     .from("books")
     .select(
       "id, file_url, price, status, book_formats!left(format, file_url, price, is_published)"
     )
     .eq("id", bookId)
     .eq("status", "published")
-    .maybeSingle();
+    .maybeSingle()) as { data: any };
 
   if (!book || book.status !== "published") {
     return { ok: false, status: 404, error: "Livre introuvable." };
   }
 
   const ebookFormat = (book.book_formats ?? []).find(
-    (fmt) => fmt.format === "ebook" && fmt.is_published
+    (fmt: any) => fmt.format === "ebook" && fmt.is_published
   );
   const effectivePrice = ebookFormat?.price ?? book.price ?? 0;
 
@@ -49,7 +50,7 @@ export async function resolveReadAccess(
       return { ok: false, status: 403, error: "Achat requis pour lire ce livre." };
     }
   } else {
-    // ✅ Solution rapide : as any pour ignorer l'erreur de typage sur Vercel
+    // ✅ Solution rapide n°2 (déjà en place) : as any pour l'upsert
     await supabase
       .from("library")
       .upsert(
