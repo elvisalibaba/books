@@ -11,11 +11,40 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+// Types manuels basés sur les sélections
+type BookBasic = {
+  id: string;
+  title: string;
+  cover_url: string | null;
+  categories: string[] | null;
+};
+
+type OrderItem = {
+  price: number;
+  books: BookBasic | BookBasic[] | null;
+};
+
+type Order = {
+  id: string;
+  total_price: number;
+  payment_status: string;
+  created_at: string;
+  order_items: OrderItem[] | null;
+};
+
+type BookWithPrice = BookBasic & { price: number };
+
+type LibraryItem = {
+  book_id: string;
+  purchased_at: string;
+  books: BookWithPrice | BookWithPrice[] | null;
+};
+
 export default async function ReaderPurchasesPage() {
   await requireRole(["reader"]);
   const supabase = await createClient();
 
-  const [{ data: orders }, { data: library }] = await Promise.all([
+  const [{ data: orders }, { data: library }] = (await Promise.all([
     supabase
       .from("orders")
       .select("id, total_price, payment_status, created_at, order_items(price, books:book_id(id, title, cover_url, categories))")
@@ -24,7 +53,7 @@ export default async function ReaderPurchasesPage() {
       .from("library")
       .select("book_id, purchased_at, books:book_id(id, title, price, cover_url, categories)")
       .order("purchased_at", { ascending: false }),
-  ]);
+  ])) as [{ data: Order[] | null }, { data: LibraryItem[] | null }];
 
   const paidOrders = (orders ?? []).filter((order) => order.payment_status === "paid");
   const totalSpent = paidOrders.reduce((sum, order) => sum + order.total_price, 0);
