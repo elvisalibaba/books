@@ -11,17 +11,39 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+// Types manuels basés sur les sélections
+type BookInfo = {
+  id: string;
+  title: string;
+  categories: string[] | null;
+  cover_url: string | null;
+  rating_avg: number | null;
+};
+
+type LibraryItem = {
+  book_id: string;
+  purchased_at: string;
+  books: BookInfo | BookInfo[] | null;
+};
+
+type Order = {
+  id: string;
+  total_price: number;
+  payment_status: string;
+  created_at: string;
+};
+
 export default async function ReaderDashboardPage() {
   const profile = await requireRole(["reader"]);
   const supabase = await createClient();
 
-  const [{ data: library }, { data: orders }] = await Promise.all([
+  const [{ data: library }, { data: orders }] = (await Promise.all([
     supabase
       .from("library")
       .select("book_id, purchased_at, books:book_id(id, title, categories, cover_url, rating_avg)")
       .order("purchased_at", { ascending: false }),
     supabase.from("orders").select("id, total_price, payment_status, created_at").order("created_at", { ascending: false }),
-  ]);
+  ])) as [{ data: LibraryItem[] | null }, { data: Order[] | null }];
 
   const totalBooks = library?.length ?? 0;
   const paidOrders = orders?.filter((order) => order.payment_status === "paid") ?? [];
