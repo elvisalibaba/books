@@ -1,14 +1,24 @@
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+// Définition manuelle du type basé sur la sélection
+type OrderRow = {
+  id: string;
+  user_id: string;
+  total_price: number;
+  payment_status: string;
+  created_at: string;
+};
+
 export default async function AdminOrdersPage() {
   await requireRole(["admin"]);
   const supabase = await createClient();
 
-  const { data } = await supabase
+  // ✅ Caster le résultat avec le type local
+  const { data } = (await supabase
     .from("orders")
     .select("id, user_id, total_price, payment_status, created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })) as { data: OrderRow[] | null };
 
   return (
     <section className="space-y-4">
