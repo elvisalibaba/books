@@ -1,6 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
+import type { BookFormatType, Database } from "@/types/database";
 
 type FileType = "epub" | "pdf";
+
+type BookAccessRow = Pick<Database["public"]["Tables"]["books"]["Row"], "id" | "file_url" | "price" | "status"> & {
+  book_formats:
+    | Array<
+        Pick<Database["public"]["Tables"]["book_formats"]["Row"], "format" | "file_url" | "price" | "is_published">
+      >
+    | null;
+};
 
 export type ReadAccessResult =
   | { ok: true; filePath: string; fileType: FileType }
@@ -17,6 +26,7 @@ export async function resolveReadAccess(bookId: string, userId: string): Promise
   const supabase = await createClient();
 
   const { data: book } = await supabase
+  const { data: bookData } = await supabase
     .from("books")
     .select("id, file_url, price, status, book_formats!left(format, file_url, price, is_published)")
     .eq("id", bookId)
@@ -24,10 +34,16 @@ export async function resolveReadAccess(bookId: string, userId: string): Promise
     .maybeSingle();
 
   if (!book || book.status !== "published") {
+  const book = bookData as BookAccessRow | null;
+
+  if (!book) {
     return { ok: false, status: 404, error: "Livre introuvable." };
   }
 
   const ebookFormat = (book.book_formats ?? []).find((fmt) => fmt.format === "ebook" && fmt.is_published);
+  const ebookFormat = (book.book_formats ?? []).find(
+    (fmt) => fmt.format === ("ebook" satisfies BookFormatType) && fmt.is_published,
+  );
   const effectivePrice = ebookFormat?.price ?? book.price ?? 0;
 
   if (effectivePrice > 0) {
@@ -43,6 +59,9 @@ export async function resolveReadAccess(bookId: string, userId: string): Promise
     }
   } else {
     await supabase.from("library").upsert({ user_id: userId, book_id: bookId }, { onConflict: "user_id,book_id" });
+    await supabase
+      .from("library")
+      .upsert({ user_id: userId, book_id: bookId } as never, { onConflict: "user_id,book_id" });
   }
 
   const secureFilePath = ebookFormat?.file_url ?? book.file_url;
