@@ -37,12 +37,13 @@ export function RegisterForm() {
     }
 
     if (data.user) {
+      // ✅ Solution rapide : as any pour contourner le typage manquant de la table profiles
       await supabase.from("profiles").upsert({
         id: data.user.id,
         email,
         name,
         role,
-      });
+      } as any);
     }
 
     setLoading(false);
