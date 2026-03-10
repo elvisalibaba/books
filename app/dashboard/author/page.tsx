@@ -3,11 +3,34 @@ import { BookOpen, CircleDollarSign, Library, PlusCircle, Sparkles, TrendingUp, 
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+// Types manuels basés sur les sélections
+type Book = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  price: number;
+};
+
+type OrderItem = {
+  price: number;
+  books: { author_id: string } | { author_id: string }[] | null;
+  orders: { payment_status: string } | { payment_status: string }[] | null;
+};
+
+type Acquisition = {
+  user_id: string;
+  purchased_at: string;
+  books: { id: string; title: string; price: number; author_id: string } | { id: string; title: string; price: number; author_id: string }[] | null;
+  profiles: { name: string | null; email: string } | { name: string | null; email: string }[] | null;
+};
+
 export default async function AuthorDashboardPage() {
   const profile = await requireRole(["author"]);
   const supabase = await createClient();
 
-  const [{ data: books }, { data: orderItems }, { data: acquisitions }] = await Promise.all([
+  // ✅ Cast des résultats avec les types manuels
+  const [{ data: books }, { data: orderItems }, { data: acquisitions }] = (await Promise.all([
     supabase
       .from("books")
       .select("id, title, status, created_at, price")
@@ -21,7 +44,11 @@ export default async function AuthorDashboardPage() {
       .from("library")
       .select("user_id, purchased_at, books:book_id(id, title, price, author_id), profiles:user_id(name, email)")
       .order("purchased_at", { ascending: false }),
-  ]);
+  ])) as [
+    { data: Book[] | null },
+    { data: OrderItem[] | null },
+    { data: Acquisition[] | null }
+  ];
 
   const ownPaidSales =
     orderItems?.filter((item) => {
