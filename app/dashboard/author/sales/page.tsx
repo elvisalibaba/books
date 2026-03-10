@@ -3,14 +3,21 @@ import { CircleDollarSign, CreditCard, Library, ShoppingCart, Sparkles, Trending
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+// Types manuels basés sur la sélection
+type OrderItemSales = {
+  price: number;
+  books: { title: string; author_id: string } | { title: string; author_id: string }[] | null;
+  orders: { created_at: string; payment_status: string } | { created_at: string; payment_status: string }[] | null;
+};
+
 export default async function AuthorSalesPage() {
   const profile = await requireRole(["author"]);
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data } = (await supabase
     .from("order_items")
     .select("price, books:book_id(title, author_id), orders:order_id(created_at, payment_status)")
-    .order("id", { ascending: false });
+    .order("id", { ascending: false })) as { data: OrderItemSales[] | null };
 
   const ownSales =
     data?.filter((item) => {
