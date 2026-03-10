@@ -17,11 +17,6 @@ type Book = {
   book_formats: BookFormat[] | null;
 };
 
-type LibraryRow = {
-  user_id: string;
-  book_id: string;
-};
-
 export type ReadAccessResult =
   | { ok: true; filePath: string; fileType: FileType }
   | { ok: false; status: number; error: string };
@@ -49,26 +44,27 @@ export async function resolveReadAccess(
     )
     .eq("id", bookId)
     .eq("status", "published")
-    .maybeSingle<Book>();
+    .maybeSingle();
 
-  if (!book || book.status !== "published") {
+  const typedBook = book as Book | null;
+
+  if (!typedBook || typedBook.status !== "published") {
     return {
       ok: false,
       status: 404,
-      error: "Livre introuvable."
+      error: "Livre introuvable.",
     };
   }
 
-  const formats = book.book_formats ?? [];
+  const formats = typedBook.book_formats ?? [];
 
   const ebookFormat = formats.find(
     (fmt) => fmt.format === "ebook" && fmt.is_published
   );
 
-  const effectivePrice = ebookFormat?.price ?? book.price ?? 0;
+  const effectivePrice = ebookFormat?.price ?? typedBook.price ?? 0;
 
   if (effectivePrice > 0) {
-
     const { data: libraryRow } = await supabase
       .from("library")
       .select("id")
@@ -80,28 +76,25 @@ export async function resolveReadAccess(
       return {
         ok: false,
         status: 403,
-        error: "Achat requis pour lire ce livre."
+        error: "Achat requis pour lire ce livre.",
       };
     }
-
   } else {
-
     await supabase
       .from("library")
-      .upsert<LibraryRow>(
+      .upsert(
         { user_id: userId, book_id: bookId },
         { onConflict: "user_id,book_id" }
       );
-
   }
 
-  const secureFilePath = ebookFormat?.file_url ?? book.file_url;
+  const secureFilePath = ebookFormat?.file_url ?? typedBook.file_url;
 
   if (!secureFilePath) {
     return {
       ok: false,
       status: 404,
-      error: "Aucun fichier lisible disponible."
+      error: "Aucun fichier lisible disponible.",
     };
   }
 
@@ -111,13 +104,13 @@ export async function resolveReadAccess(
     return {
       ok: false,
       status: 400,
-      error: "Type de fichier non supporte."
+      error: "Type de fichier non supporté.",
     };
   }
 
   return {
     ok: true,
     filePath: secureFilePath,
-    fileType
+    fileType,
   };
 }
