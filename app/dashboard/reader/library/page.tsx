@@ -3,14 +3,31 @@ import { ArrowRight, BookOpen, Compass, Gem, LibraryBig, Sparkles, Star } from "
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+// Types manuels basés sur la sélection
+type BookInfo = {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_url: string | null;
+  price: number;
+  categories: string[] | null;
+  rating_avg: number | null;
+};
+
+type LibraryItem = {
+  book_id: string;
+  purchased_at: string;
+  books: BookInfo | BookInfo[] | null; // Peut être un objet ou un tableau selon la cardinalité
+};
+
 export default async function ReaderLibraryPage() {
   const profile = await requireRole(["reader"]);
   const supabase = await createClient();
 
-  const { data: library } = await supabase
+  const { data: library } = (await supabase
     .from("library")
     .select("book_id, purchased_at, books:book_id(id, title, description, cover_url, price, categories, rating_avg)")
-    .order("purchased_at", { ascending: false });
+    .order("purchased_at", { ascending: false })) as { data: LibraryItem[] | null };
 
   const items = library ?? [];
   const totalBooks = items.length;
